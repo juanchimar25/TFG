@@ -12,4 +12,11 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    optimizeDeps: {
+      // @tanstack/start-server-core is server-only — excluding it from client pre-bundling
+      // prevents esbuild from scanning its virtual-module imports (#tanstack-router-entry, etc.)
+      exclude: ["@tanstack/start-server-core"],
+    },
+  },
 });

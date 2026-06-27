@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppReceiptsRouteImport } from './routes/_app.receipts'
 import { Route as AppLoansRouteImport } from './routes/_app.loans'
 import { Route as AppInvestmentsRouteImport } from './routes/_app.investments'
+import { Route as AppFaqRouteImport } from './routes/_app.faq'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppCashflowRouteImport } from './routes/_app.cashflow'
 import { Route as AppAccountsRouteImport } from './routes/_app.accounts'
@@ -48,6 +49,11 @@ const AppInvestmentsRoute = AppInvestmentsRouteImport.update({
   path: '/investments',
   getParentRoute: () => AppRoute,
 } as any)
+const AppFaqRoute = AppFaqRouteImport.update({
+  id: '/faq',
+  path: '/faq',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -70,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/accounts': typeof AppAccountsRoute
   '/cashflow': typeof AppCashflowRoute
   '/dashboard': typeof AppDashboardRoute
+  '/faq': typeof AppFaqRoute
   '/investments': typeof AppInvestmentsRoute
   '/loans': typeof AppLoansRoute
   '/receipts': typeof AppReceiptsRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/accounts': typeof AppAccountsRoute
   '/cashflow': typeof AppCashflowRoute
   '/dashboard': typeof AppDashboardRoute
+  '/faq': typeof AppFaqRoute
   '/investments': typeof AppInvestmentsRoute
   '/loans': typeof AppLoansRoute
   '/receipts': typeof AppReceiptsRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/_app/accounts': typeof AppAccountsRoute
   '/_app/cashflow': typeof AppCashflowRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/faq': typeof AppFaqRoute
   '/_app/investments': typeof AppInvestmentsRoute
   '/_app/loans': typeof AppLoansRoute
   '/_app/receipts': typeof AppReceiptsRoute
@@ -104,6 +113,7 @@ export interface FileRouteTypes {
     | '/accounts'
     | '/cashflow'
     | '/dashboard'
+    | '/faq'
     | '/investments'
     | '/loans'
     | '/receipts'
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
     | '/accounts'
     | '/cashflow'
     | '/dashboard'
+    | '/faq'
     | '/investments'
     | '/loans'
     | '/receipts'
@@ -125,6 +136,7 @@ export interface FileRouteTypes {
     | '/_app/accounts'
     | '/_app/cashflow'
     | '/_app/dashboard'
+    | '/_app/faq'
     | '/_app/investments'
     | '/_app/loans'
     | '/_app/receipts'
@@ -180,6 +192,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppInvestmentsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/faq': {
+      id: '/_app/faq'
+      path: '/faq'
+      fullPath: '/faq'
+      preLoaderRoute: typeof AppFaqRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboard': {
       id: '/_app/dashboard'
       path: '/dashboard'
@@ -208,6 +227,7 @@ interface AppRouteChildren {
   AppAccountsRoute: typeof AppAccountsRoute
   AppCashflowRoute: typeof AppCashflowRoute
   AppDashboardRoute: typeof AppDashboardRoute
+  AppFaqRoute: typeof AppFaqRoute
   AppInvestmentsRoute: typeof AppInvestmentsRoute
   AppLoansRoute: typeof AppLoansRoute
   AppReceiptsRoute: typeof AppReceiptsRoute
@@ -217,6 +237,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAccountsRoute: AppAccountsRoute,
   AppCashflowRoute: AppCashflowRoute,
   AppDashboardRoute: AppDashboardRoute,
+  AppFaqRoute: AppFaqRoute,
   AppInvestmentsRoute: AppInvestmentsRoute,
   AppLoansRoute: AppLoansRoute,
   AppReceiptsRoute: AppReceiptsRoute,

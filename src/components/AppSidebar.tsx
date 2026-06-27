@@ -6,6 +6,7 @@ import {
   LineChart,
   TrendingUp,
   Landmark,
+  HelpCircle,
   LogOut,
 } from "lucide-react";
 import {
@@ -25,13 +26,13 @@ import { PrimusLogo } from "./PrimusLogo";
 const nav = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Cuentas Vinculadas", url: "/accounts", icon: Wallet },
-  { title: "Comprobantes OCR", url: "/receipts", icon: ScanLine },
+  { title: "Obligaciones", url: "/receipts", icon: ScanLine },
   { title: "Cash Flow", url: "/cashflow", icon: LineChart },
 ];
 
 const market = [
   { title: "Inversiones", url: "/investments", icon: TrendingUp },
-  { title: "Financiaciones", url: "/loans", icon: Landmark },
+  { title: "Financiación", url: "/loans", icon: Landmark },
 ];
 
 export function AppSidebar() {
@@ -82,6 +83,14 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border p-3">
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={isActive("/faq")} tooltip="Glosario financiero">
+              <Link to="/faq" className="flex items-center gap-2">
+                <HelpCircle className="h-4 w-4" />
+                <span>Glosario</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="Cerrar sesión">
               <Link to="/login" className="flex items-center gap-2">

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PrimusLogo } from "@/components/PrimusLogo";
 import { toast } from "sonner";
+import { registerUser, loginUser } from "@/lib/api/auth.functions";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Ingresar — Primus" }] }),
@@ -14,11 +15,26 @@ export const Route = createFileRoute("/login")({
 
 type Mode = "login" | "register" | "recover";
 
+const ERROR_MESSAGES: Record<string, string> = {
+  EMAIL_TAKEN: "Este email ya está registrado. Probá iniciar sesión.",
+  INVALID_CREDENTIALS: "Correo o clave incorrectos.",
+  ACCOUNT_LOCKED: "Cuenta bloqueada por múltiples intentos fallidos. Intentá en 15 minutos.",
+};
+
+function parseServerError(error: unknown): string {
+  const msg = error instanceof Error ? error.message : String(error);
+  for (const [key, label] of Object.entries(ERROR_MESSAGES)) {
+    if (msg.includes(key)) return label;
+  }
+  return "Ocurrió un error inesperado. Intentá de nuevo.";
+}
+
 function Auth() {
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [touched, setTouched] = useState({ email: false, password: false });
   const navigate = useNavigate();
 
@@ -27,22 +43,37 @@ function Auth() {
   const showEmailErr = touched.email && !emailValid;
   const showPassErr = touched.password && mode === "register" && !passLen;
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTouched({ email: true, password: true });
+
     if (!email) return toast.error("El email es requerido.");
     if (!emailValid) return toast.error("Email inválido.");
-    if (mode !== "recover") {
-      if (!password) return toast.error("La contraseña es requerida.");
-      if (mode === "register" && !passLen) return toast.error("La contraseña debe tener al menos 8 caracteres.");
-    }
+
     if (mode === "recover") {
       toast.success("Te enviamos un enlace de recuperación.");
       setMode("login");
       return;
     }
-    toast.success(mode === "login" ? "Bienvenido de vuelta." : "Cuenta creada.");
-    navigate({ to: "/dashboard" });
+
+    if (!password) return toast.error("La contraseña es requerida.");
+    if (mode === "register" && !passLen) return toast.error("La contraseña debe tener al menos 8 caracteres.");
+
+    setLoading(true);
+    try {
+      if (mode === "register") {
+        await registerUser({ data: { email, password } });
+        toast.success("Cuenta creada. ¡Bienvenido!");
+      } else {
+        await loginUser({ data: { email, password } });
+        toast.success("Bienvenido de vuelta.");
+      }
+      navigate({ to: "/dashboard" });
+    } catch (err) {
+      toast.error(parseServerError(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const titles = {
@@ -132,14 +163,20 @@ function Auth() {
                 {mode === "register" && (
                   <p className={`mt-1 flex items-center gap-1 text-xs ${passLen ? "text-success" : showPassErr ? "text-destructive" : "text-muted-foreground"}`}>
                     {passLen ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
-                    Mínimo 8 caracteres.
+                    Mínimo 8 caracteres (mayúscula, minúscula, número y carácter especial).
                   </p>
                 )}
               </div>
             )}
 
-            <Button type="submit" className="h-11 w-full rounded-xl shadow-[var(--shadow-glow)]">
-              {mode === "login" ? "Ingresar al Ecosistema" : mode === "register" ? "Crear cuenta gratis" : "Enviar enlace"}
+            <Button type="submit" disabled={loading} className="h-11 w-full rounded-xl shadow-[var(--shadow-glow)]">
+              {loading
+                ? "Procesando…"
+                : mode === "login"
+                  ? "Ingresar al Ecosistema"
+                  : mode === "register"
+                    ? "Crear cuenta gratis"
+                    : "Enviar enlace"}
             </Button>
 
             {mode === "recover" && (
