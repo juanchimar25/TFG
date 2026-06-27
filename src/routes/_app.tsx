@@ -20,8 +20,8 @@ const titles: Record<string, { title: string; subtitle: string }> = {
   "/accounts": { title: "Cuentas Vinculadas", subtitle: "Bancos y billeteras virtuales sincronizados" },
   "/receipts": { title: "Obligaciones", subtitle: "Ingesta documental inteligente" },
   "/cashflow": { title: "Proyecciones de Cash Flow", subtitle: "Liquidez proyectada en tiempo real" },
-  "/investments": { title: "Comparador de Inversiones", subtitle: "Ranking objetivo de alternativas del mercado" },
-  "/loans": { title: "Comparador de Financiaciones", subtitle: "Crédito ordenado por CFT" },
+  "/investments": { title: "Opciones de Inversión", subtitle: "Ranking objetivo de alternativas del mercado" },
+  "/loans": { title: "Opciones de Financiación", subtitle: "Crédito ordenado por CFT" },
   "/faq":   { title: "Glosario", subtitle: "Conceptos financieros explicados de forma simple" },
 };
 

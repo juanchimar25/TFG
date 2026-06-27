@@ -1,4 +1,5 @@
 import { type LucideIcon } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 
 export function MetricCard({
@@ -9,6 +10,7 @@ export function MetricCard({
   trend,
   trendDir = "up",
   accent = "primary",
+  cta,
 }: {
   label: string;
   value: string;
@@ -17,6 +19,7 @@ export function MetricCard({
   trend?: string;
   trendDir?: "up" | "down";
   accent?: "primary" | "success" | "warning" | "destructive";
+  cta?: { label: string; href: string };
 }) {
   const accentMap = {
     primary: "bg-primary/10 text-primary",
@@ -43,6 +46,14 @@ export function MetricCard({
         )}
         {hint && <span className="text-muted-foreground">{hint}</span>}
       </div>
+      {cta && (
+        <Link
+          to={cta.href}
+          className="mt-3 inline-block rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition hover:bg-primary/90"
+        >
+          {cta.label}
+        </Link>
+      )}
     </Card>
   );
 }

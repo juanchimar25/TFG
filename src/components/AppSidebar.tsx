@@ -31,8 +31,8 @@ const nav = [
 ];
 
 const market = [
-  { title: "Inversiones", url: "/investments", icon: TrendingUp },
-  { title: "Financiación", url: "/loans", icon: Landmark },
+  { title: "Opciones de Inversión", url: "/investments", icon: TrendingUp },
+  { title: "Opciones de Financiación", url: "/loans", icon: Landmark },
 ];
 
 export function AppSidebar() {

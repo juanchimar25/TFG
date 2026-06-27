@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -83,14 +83,27 @@ import {
   getPlazofijo, getCuentasRemuneradas,
   type PlazofijRate, type CuentaRemunRate,
 } from "@/lib/api/rates.functions";
+import { getUserAccounts } from "@/lib/api/accounts.functions";
+import { getObligations } from "@/lib/api/obligations.functions";
+
+const USD_TO_ARS = 1500;
 
 export const Route = createFileRoute("/_app/investments")({
   loader: async () => {
-    const [plazofijo, remuneradas] = await Promise.all([
+    const [plazofijo, remuneradas, accounts, obligations] = await Promise.all([
       getPlazofijo(),
       getCuentasRemuneradas(),
+      getUserAccounts(),
+      getObligations(),
     ]);
-    return { plazofijo, remuneradas };
+    const totalArs = accounts.reduce((s, a) => s + parseFloat(a.saldo_actual) * (a.moneda === "USD" ? USD_TO_ARS : 1), 0);
+    const today = new Date();
+    const totalVencidas = obligations
+      .filter(o => !o.pagado)
+      .filter(o => new Date(o.fecha_vencimiento + "T12:00:00") <= today)
+      .reduce((s, o) => s + parseFloat(o.monto), 0);
+    const fondosOciosos = Math.max(0, Math.round(totalArs - totalVencidas));
+    return { plazofijo, remuneradas, defaultAmount: fondosOciosos };
   },
   component: Investments,
 });
@@ -108,9 +121,18 @@ function gainCr(amount: number, tea: number, days: number): number {
 const PLAZOS = [30, 60, 90, 180, 365];
 
 function Investments() {
-  const { plazofijo, remuneradas } = Route.useLoaderData();
+  const { plazofijo, remuneradas, defaultAmount } = Route.useLoaderData();
   const [tab, setTab]                       = useState<"pf" | "cr">("pf");
-  const [amount, setAmount]                 = useState(500_000);
+  const [amount, setAmount]                 = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = sessionStorage.getItem("primus_fondos_ociosos");
+      if (stored !== null) return Number(stored);
+    }
+
+    return defaultAmount;
+  });
+  const [inputStr, setInputStr]             = useState(() => amount.toLocaleString("es-AR", { maximumFractionDigits: 0 }));
+  const amountRef                           = useRef<HTMLInputElement>(null);
   const [days, setDays]                     = useState(30);
   const [showNoClientes, setShowNoClientes] = useState(false);
   const [selectedPfIdx, setSelectedPfIdx]   = useState(0);
@@ -158,13 +180,30 @@ function Investments() {
             <div>
               <Label htmlFor="amount">Monto a colocar (ARS)</Label>
               <Input
+                ref={amountRef}
                 id="amount"
                 type="text"
                 inputMode="numeric"
-                value={amount === 0 ? "" : amount.toLocaleString("es-AR", { maximumFractionDigits: 0 })}
+                value={inputStr}
+                onFocus={(e) => e.target.select()}
                 onChange={(e) => {
+                  const pos = e.target.selectionStart ?? e.target.value.length;
+                  const digitsAntes = e.target.value.slice(0, pos).replace(/\D/g, "").length;
                   const raw = e.target.value.replace(/\D/g, "");
-                  setAmount(raw ? Number(raw) : 0);
+                  if (!raw) { setInputStr(""); setAmount(0); return; }
+                  const num = Number(raw);
+                  const fmt = num.toLocaleString("es-AR", { maximumFractionDigits: 0 });
+                  setInputStr(fmt);
+                  setAmount(num);
+                  requestAnimationFrame(() => {
+                    const el = amountRef.current;
+                    if (!el) return;
+                    let count = 0; let newPos = fmt.length;
+                    for (let i = 0; i < fmt.length; i++) {
+                      if (/\d/.test(fmt[i]) && ++count === digitsAntes) { newPos = i + 1; break; }
+                    }
+                    el.setSelectionRange(newPos, newPos);
+                  });
                 }}
                 className="mt-1.5 h-12 rounded-xl text-lg font-semibold"
               />

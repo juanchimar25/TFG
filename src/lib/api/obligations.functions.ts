@@ -9,6 +9,7 @@ export type Obligation = {
   monto: string;
   fecha_vencimiento: string;
   pagado: boolean;
+  fecha_pago: string | null;
 };
 
 export type EstadoObligation = "Próximo" | "Urgente" | "Vencido" | "Pagado";
@@ -28,12 +29,19 @@ export function formatObligationDate(iso: string): string {
   return new Date(iso + "T12:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
 }
 
+let _fechaPagoMigrated = false;
+
 export const getObligations = createServerFn({ method: "GET" }).handler(async () => {
   const session = await getSession();
   if (!session) throw new Error("UNAUTHORIZED");
   const db = getDb();
+  if (!_fechaPagoMigrated) {
+    await db.query(`ALTER TABLE obligacion ADD COLUMN IF NOT EXISTS fecha_pago DATE`);
+    _fechaPagoMigrated = true;
+  }
   const { rows } = await db.query<Obligation>(
-    `SELECT id_obligacion, emisor, monto::text, fecha_vencimiento::text, pagado
+    `SELECT id_obligacion, emisor, monto::text, fecha_vencimiento::text, pagado,
+            fecha_pago::text
      FROM obligacion
      WHERE id_usuario = $1
      ORDER BY pagado ASC, fecha_vencimiento ASC`,
@@ -89,14 +97,17 @@ export const toggleObligation = createServerFn({ method: "POST" })
   .inputValidator(z.object({
     id_obligacion: z.number().int().positive(),
     pagado: z.boolean(),
+    fecha_pago: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   }))
   .handler(async ({ data }) => {
     const session = await getSession();
     if (!session) throw new Error("UNAUTHORIZED");
     const db = getDb();
     await db.query(
-      "UPDATE obligacion SET pagado = $1 WHERE id_obligacion = $2 AND id_usuario = $3",
-      [data.pagado, data.id_obligacion, session.userId],
+      `UPDATE obligacion
+       SET pagado = $1, fecha_pago = $2
+       WHERE id_obligacion = $3 AND id_usuario = $4`,
+      [data.pagado, data.pagado ? (data.fecha_pago ?? null) : null, data.id_obligacion, session.userId],
     );
     return { ok: true };
   });

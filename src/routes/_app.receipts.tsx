@@ -66,6 +66,10 @@ function Obligations() {
   const [dupSource, setDupSource] = useState<"ocr" | "manual">("ocr");
   const [forceAdd, setForceAdd]   = useState(false);
 
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [payingOb, setPayingOb]   = useState<Obligation | null>(null);
+  const [fechaPago, setFechaPago] = useState(todayStr);
+
   const resetFields = () => { setEmisor(""); setMonto(""); setFecha(""); setDupMatch(null); setForceAdd(false); };
   const reset = () => { resetFields(); setStep("choice"); };
   const openManual = () => { resetFields(); setStep("form"); setOpen(true); };
@@ -183,12 +187,32 @@ function Obligations() {
   };
 
   const handleToggle = async (ob: Obligation) => {
+    if (!ob.pagado) {
+      // Marcar como pagada → pedir fecha de pago primero
+      setFechaPago(todayStr);
+      setPayingOb(ob);
+      return;
+    }
+    // Desmarcar pago directamente
     try {
-      await toggleObligation({ data: { id_obligacion: ob.id_obligacion, pagado: !ob.pagado } });
+      await toggleObligation({ data: { id_obligacion: ob.id_obligacion, pagado: false, fecha_pago: null } });
       await router.invalidate();
-      toast.success(ob.pagado ? `${ob.emisor} marcada como pendiente.` : `${ob.emisor} marcada como pagada.`);
+      toast.success(`${ob.emisor} marcada como pendiente.`);
     } catch {
       toast.error("No se pudo actualizar.");
+    }
+  };
+
+  const handleConfirmPago = async () => {
+    if (!payingOb || !fechaPago) return;
+    try {
+      await toggleObligation({ data: { id_obligacion: payingOb.id_obligacion, pagado: true, fecha_pago: fechaPago } });
+      await router.invalidate();
+      toast.success(`${payingOb.emisor} marcada como pagada.`);
+    } catch {
+      toast.error("No se pudo actualizar.");
+    } finally {
+      setPayingOb(null);
     }
   };
 
@@ -210,11 +234,11 @@ function Obligations() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          {pendientes.length} pendiente{pendientes.length !== 1 ? "s" : ""} ·{" "}
+          {pendientes.length} obligacion{pendientes.length !== 1 ? "es" : ""} ·{" "}
           <span className="font-medium text-foreground">
             ARS {totalPendiente.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
           </span>{" "}
-          por vencer
+          pendientes de pago
         </p>
         <Button onClick={() => { reset(); setOpen(true); }} className="rounded-xl shadow-[var(--shadow-glow)]">
           <Plus className="mr-1 h-4 w-4" /> Nueva obligación
@@ -246,6 +270,7 @@ function Obligations() {
                   <TableHead className="text-right">Monto</TableHead>
                   <TableHead className="hidden md:table-cell">Vencimiento</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead className="hidden lg:table-cell">Fecha pago</TableHead>
                   <TableHead />
                 </TableRow>
               </TableHeader>
@@ -260,6 +285,9 @@ function Obligations() {
                         {formatObligationDate(ob.fecha_vencimiento)}
                       </TableCell>
                       <TableCell><EstadoBadge estado={estado} /></TableCell>
+                      <TableCell className="hidden text-muted-foreground lg:table-cell">
+                        {ob.fecha_pago ? formatObligationDate(ob.fecha_pago) : "—"}
+                      </TableCell>
                       <TableCell>
                         <div className="flex justify-end gap-3">
                           <button
@@ -389,12 +417,14 @@ function Obligations() {
                   <Label>Monto (ARS)</Label>
                   <Input
                     className="mt-1.5 h-10 rounded-xl"
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    placeholder="Ej: 24580"
-                    value={monto}
-                    onChange={(e) => setMonto(e.target.value)}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="Ej: 24.580"
+                    value={monto ? Math.round(parseFloat(monto) || 0).toLocaleString("es-AR") : ""}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\./g, "").replace(/\D/g, "");
+                      setMonto(raw);
+                    }}
                     required
                   />
                 </div>
@@ -428,6 +458,42 @@ function Obligations() {
               </form>
             )
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: registrar fecha de pago */}
+      <Dialog open={!!payingOb} onOpenChange={(v) => { if (!v) setPayingOb(null); }}>
+        <DialogContent className="rounded-2xl sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Registrar pago</DialogTitle>
+            <DialogDescription>
+              {payingOb ? `${payingOb.emisor} — ARS ${parseFloat(payingOb.monto).toLocaleString("es-AR")}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-2 space-y-4">
+            <div>
+              <Label className="text-sm">Fecha en que se realizó el pago</Label>
+              <Input
+                type="date"
+                className="mt-1.5 h-10 rounded-xl"
+                value={fechaPago}
+                max={todayStr}
+                onChange={(e) => setFechaPago(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                className="flex-1 rounded-xl shadow-[var(--shadow-glow)]"
+                onClick={handleConfirmPago}
+                disabled={!fechaPago}
+              >
+                Confirmar pago
+              </Button>
+              <Button variant="ghost" className="rounded-xl" onClick={() => setPayingOb(null)}>
+                Cancelar
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

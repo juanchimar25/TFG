@@ -1,12 +1,32 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Landmark, Award, Info } from "lucide-react";
-import { PESOS_PRODUCTS } from "@/lib/api/loans-data";
+import { getLoanProducts } from "@/lib/api/loans.functions";
+import type { LoanProduct } from "@/lib/api/loans-data";
+import { getUserAccounts } from "@/lib/api/accounts.functions";
+import { getObligations } from "@/lib/api/obligations.functions";
+
+const USD_TO_ARS = 1500;
 
 export const Route = createFileRoute("/_app/loans")({
+  loader: async () => {
+    const [{ pesos, uva }, accounts, obligations] = await Promise.all([
+      getLoanProducts(),
+      getUserAccounts(),
+      getObligations(),
+    ]);
+    const totalArs = accounts.reduce((s, a) => s + parseFloat(a.saldo_actual) * (a.moneda === "USD" ? USD_TO_ARS : 1), 0);
+    const today = new Date();
+    const totalVencidas = obligations
+      .filter(o => !o.pagado)
+      .filter(o => new Date(o.fecha_vencimiento + "T12:00:00") <= today)
+      .reduce((s, o) => s + parseFloat(o.monto), 0);
+    const insolvencia = Math.max(0, Math.round(totalVencidas - totalArs));
+    return { pesos, uva, defaultAmount: insolvencia };
+  },
   component: Loans,
 });
 
@@ -87,17 +107,26 @@ const PLAZOS = [6, 12, 24, 36, 48, 60, 72];
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 function Loans() {
-  const [amount, setAmount]           = useState(1_000_000);
+  const { pesos, defaultAmount } = Route.useLoaderData();
+  const [amount, setAmount]           = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = sessionStorage.getItem("primus_insolvencia");
+      if (stored !== null) return Number(stored);
+    }
+    return defaultAmount;
+  });
+  const [inputStr, setInputStr]       = useState(() => fmtArs(amount));
+  const amountRef                     = useRef<HTMLInputElement>(null);
   const [plazo, setPlazo]             = useState(24);
   const [selectedIdx, setSelectedIdx] = useState(0);
 
-  const selected     = PESOS_PRODUCTS[selectedIdx];
+  const selected     = pesos[selectedIdx] as LoanProduct | undefined;
   const selAvailable = selected && plazo <= selected.plazoMax;
   const selCuota     = selAvailable ? cuotaMensual(selected.cft, amount, plazo) : null;
   const selTotal     = selCuota != null ? selCuota * plazo : null;
   const selIntereses = selTotal != null ? selTotal - amount : null;
 
-  const bestCuota = cuotaMensual(PESOS_PRODUCTS[0].cft, amount, plazo);
+  const bestCuota = pesos[0] ? cuotaMensual(pesos[0].cft, amount, plazo) : 0;
 
   return (
     <div className="space-y-6">
@@ -121,13 +150,30 @@ function Loans() {
             <div>
               <Label htmlFor="amount">Monto (ARS)</Label>
               <Input
+                ref={amountRef}
                 id="amount"
                 type="text"
                 inputMode="numeric"
-                value={amount === 0 ? "" : amount.toLocaleString("es-AR", { maximumFractionDigits: 0 })}
+                value={inputStr}
+                onFocus={(e) => e.target.select()}
                 onChange={(e) => {
+                  const pos = e.target.selectionStart ?? e.target.value.length;
+                  const digitsAntes = e.target.value.slice(0, pos).replace(/\D/g, "").length;
                   const raw = e.target.value.replace(/\D/g, "");
-                  setAmount(raw ? Number(raw) : 0);
+                  if (!raw) { setInputStr(""); setAmount(0); return; }
+                  const num = Number(raw);
+                  const fmt = num.toLocaleString("es-AR", { maximumFractionDigits: 0 });
+                  setInputStr(fmt);
+                  setAmount(num);
+                  requestAnimationFrame(() => {
+                    const el = amountRef.current;
+                    if (!el) return;
+                    let count = 0; let newPos = fmt.length;
+                    for (let i = 0; i < fmt.length; i++) {
+                      if (/\d/.test(fmt[i]) && ++count === digitsAntes) { newPos = i + 1; break; }
+                    }
+                    el.setSelectionRange(newPos, newPos);
+                  });
                 }}
                 className="mt-1.5 h-12 rounded-xl text-lg font-semibold"
               />
@@ -186,12 +232,12 @@ function Loans() {
         <div>
           <h3 className="text-base font-semibold">Ranking por Costo Financiero Total</h3>
           <p className="text-xs text-muted-foreground">
-            {PESOS_PRODUCTS.length} principales oferentes · ordenado de menor a mayor CFT
+            {pesos.length} principales oferentes · ordenado de menor a mayor CFT
           </p>
         </div>
 
         <div className="mt-5 space-y-2.5">
-          {PESOS_PRODUCTS.map((r, i) => {
+          {pesos.map((r, i) => {
             const available  = plazo <= r.plazoMax;
             const c          = available ? cuotaMensual(r.cft, amount, plazo) : null;
             const diff       = c != null ? c * plazo - bestCuota * plazo : null;
